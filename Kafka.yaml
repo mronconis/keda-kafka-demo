@@ -1,0 +1,85 @@
+kind: KafkaNodePool
+apiVersion: kafka.strimzi.io/v1beta2
+metadata:
+  name: demo-knp
+  labels:
+    strimzi.io/cluster: demo-cluster
+spec:
+  replicas: 1
+  roles:
+    - broker
+    - controller
+  storage:
+    type: ephemeral
+    sizeLimit: 10Gi
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: demo-cluster
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  kafka:
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+    listeners:
+      - name: client
+        authentication:
+          type: scram-sha-512
+        port: 9092
+        tls: false
+        type: internal
+    authorization:
+      superUsers:
+        - admin
+      type: simple
+    version: 4.0.0
+    metadataVersion: 4.0-IV3
+  kafkaExporter:
+    groupRegex: test-cg
+    topicRegex: test*
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: admin
+  labels:
+    strimzi.io/cluster: demo-cluster
+spec:
+  authentication:
+    type: scram-sha-512
+---
+kind: KafkaTopic
+apiVersion: kafka.strimzi.io/v1beta2
+metadata:
+  name: test-in
+  labels:
+    strimzi.io/cluster: demo-cluster
+spec:
+  partitions: 10
+  replicas: 3
+  config:
+    retention.ms: 604800000
+    segment.bytes: 1073741824
+---
+kind: KafkaTopic
+apiVersion: kafka.strimzi.io/v1beta2
+metadata:
+  name: test-out
+  labels:
+    strimzi.io/cluster: demo-cluster
+spec:
+  partitions: 10
+  replicas: 3
+  config:
+    retention.ms: 604800000
+    segment.bytes: 1073741824

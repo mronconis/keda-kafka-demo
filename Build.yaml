@@ -1,0 +1,31 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: kafka-consumer
+  namespace: keda-cma-kafka
+---
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: kafka-consumer
+  labels:
+    app.kubernetes.io/part-of: kafka-app
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: 'kafka-consumer:latest'
+  resources:
+    limits:
+      memory: 1Gi
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        name: 'openjdk-21:latest'
+  source:
+    type: Git
+    git:
+      uri: 'https://github.com/mronconis/quarkus-kafka-consumer.git'
