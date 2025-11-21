@@ -1,0 +1,17 @@
+apiVersion: keda.sh/v1alpha1
+kind: KedaController
+metadata:
+  finalizers:
+    - finalizer.kedacontroller.keda.sh
+  name: keda
+spec:
+  admissionWebhooks:
+    logEncoder: console
+    logLevel: info
+  metricsServer:
+    logLevel: '0'
+  operator:
+    logEncoder: console
+    logLevel: debug
+  watchNamespace: keda-cma-kafka
+

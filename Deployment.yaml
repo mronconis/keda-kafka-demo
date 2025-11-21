@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kafka-consumer-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kafka-consumer-role
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kafka-consumer-rolebinding
+roleRef:
+  kind: Role
+  name: kafka-consumer-role
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: kafka-consumer-sa
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: kafka-consumer
+  name: kafka-consumer
+  namespace: keda-cma-kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-consumer
+    spec:
+      serviceAccountName: kafka-consumer-sa
+      containers:
+      - env:
+        - name: KAFKA_BOOTSTRAP_SERVER
+          value: demo-cluster-kafka-bootstrap.keda-cma-kafka.svc.cluster.local:9092
+        - name: KAFKA_USER
+          value: admin
+        - name: KAFKA_CG
+          value: test-cg
+        - name: KAFKA_NS
+          value: keda-cma-kafka
+        image: image-registry.openshift-image-registry.svc:5000/keda-cma-kafka/kafka-consumer
+        imagePullPolicy: Always
+        name: kafka-consumer
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 8443
+          protocol: TCP
+      terminationGracePeriodSeconds: 60

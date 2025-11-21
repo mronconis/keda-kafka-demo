@@ -1,0 +1,73 @@
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  labels:
+    app: kafka-consumer
+  name: keda-trigger-auth-kafka-credential
+spec:
+  secretTargetRef:
+  - key: username
+    name: keda-kafka-credential
+    parameter: username
+  - key: password
+    name: keda-kafka-credential
+    parameter: password
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  # annotations:
+  #   autoscaling.keda.sh/paused-replicas: "0" # To pause the custom metrics autoscaler
+  labels:
+    app: kafka-consumer
+    app.kubernetes.io/part-of: kafka-app
+  name: kafka-consumer-scaledobject
+  namespace: keda-cma-kafka
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: deployment
+    name: kafka-consumer
+  pollingInterval: 30 # adjust as needed 30 sec is default
+  minReplicaCount: 0 # minimum number of replicas. Default: 0
+  maxReplicaCount: 10 # maximum number of replicas. Default: 100
+  cooldownPeriod: 30 # Specifies the period in seconds to wait after the last trigger is reported before scaling the deployment back to 0 if the minReplicaCount is set to 0. The default is 300
+  fallback: # Optional. Section to specify fallback options
+    failureThreshold: 3 # Mandatory if fallback section is included
+    replicas: 5 # Mandatory if fallback section is included
+  advanced: # Optional. Section to specify advanced options
+    restoreToOriginalReplicaCount: true # Optional. Default: false. It specifies whether the target resource (Deployment, StatefulSet,…) should be scaled back to original replicas count, after the ScaledObject is deleted
+    horizontalPodAutoscalerConfig:
+      # name: {name-of-hpa-resource} # Optional. Default: keda-hpa-{scaled-object-name}
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 30
+          policies:
+          - type: Pods
+            value: 2
+            periodSeconds: 30
+        scaleDown:
+          stabilizationWindowSeconds: 30
+          policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 30
+  triggers:
+  - type: kafka
+    # useCachedMetrics: true # Enables caching of metric values during polling interval (as specified in .spec.pollingInterval). (Values: false, true, Default: false, Optional)
+    authenticationRef:
+      name: keda-trigger-auth-kafka-credential
+    metadata:
+      bootstrapServers: demo-cluster-kafka-bootstrap.keda-cma-kafka.svc.cluster.local:9092 # Kafka bootstrap servers
+      sasl: scram_sha512
+      topic: test-in
+      consumerGroup: test-cg
+      lagThreshold: '200' # adjust as needed
+      activationLagThreshold: '10'  # adjust as needed. Default is 0: it will only activate when the metric value is 1 or more
+      # offsetResetPolicy: 'latest' # The offset reset policy for the consumer. (Values: latest, earliest, Default: latest, Optional). It must be equal to the kakfka consumer 'auto.offset.reset' parameter.
+      # allowIdleConsumers: 'false' # When set to true, the number of replicas can exceed the number of partitions on a topic, allowing for idle consumers. (Default: false, Optional)
+      # scaleToZeroOnInvalidOffset: 'true' # This parameter controls what the scaler does when a partition doesn’t have a valid offset. If ‘false’ (the default), the scaler will keep a single consumer for that partition. Otherwise (’true’), the consumers for that partition will be scaled to zero
+      # excludePersistentLag: 'true' # When set to true, the scaler will exclude partition lag for partitions which current offset is the same as the current offset of the previous polling cycle. This parameter is useful to prevent scaling due to partitions which current offset message is unable to be consumed. If false (the default), scaler will include all consumer lag in all partitions as per normal. 
+      #limitToPartitionsWithLag: 'true' # When set to true, the number of replicas will not exceed the number of partitions having non-zero lag. (Default: false, Optional)
+      unsafeSsl: 'true' # Skip certificate validation when connecting over HTTPS. (Values: true, false, Default: false, Optional)
+      
